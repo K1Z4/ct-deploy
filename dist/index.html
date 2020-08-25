@@ -1,0 +1,151 @@
+<html>
+
+<head>
+    <script src="/lib/vue.min.js"></script>
+    <script src="/lib/clipboard.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="/lib/bootstrap.min.css">
+    <title>Deployment tagging</title>
+    <style>
+        .center-right {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        pre {
+            background-color: #f6f6f6;
+            padding: 6px 15px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container" id="vue">
+        <div class="row mt-3">
+            <div class="col-md">
+                <h1>Deploy</h1>
+            </div>
+            <div class="col-md text-right center-right">
+                <button class="btn btn-outline-primary" v-on:click="toggleSettings">{{ settingsButtonText }}</button>
+            </div>
+        </div>
+
+        <p>
+            <small>Today: {{date}}</small>
+        </p>
+
+        <div v-if="showSettings" class="card mb-3">
+            <div class="card-body">
+                <h3>Settings</h3>
+                <div class="form-group">
+                    <label for="teamName">Team name</label>
+                    <input type="text" class="form-control" id="teamName" v-model="teamName">
+                    <small>e.g. hyd or draco</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="incrementStart">Increment start</label>
+                    <input type="number" class="form-control" id="incrementStart" v-model="incrementStart">
+                </div>
+                <button class="btn btn-primary" v-on:click="saveSettings">Persist</button>
+
+                <p>
+                    <strong>Alias setup</strong> Place the following in the [alias] section of %userprofile%/.gitconfig
+                </p>
+                <pre>tagpush = !sh -c 'git tag $1 && git push origin $1' -</pre>
+
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="env">Environment</label>
+            <select class="form-control" id="env" v-model="env">
+                <option v-bind:value="`Feature-${teamName}-1`">{{ prettyTeamName }} Feature 1</option>
+                <option v-bind:value="`Feature-${teamName}-2`">{{ prettyTeamName }} Feature 2</option>
+                <option v-bind:value="`Feature-${teamName}-3`">{{ prettyTeamName }} Feature 3</option>
+                <option v-bind:value="`Feature-${teamName}-4`">{{ prettyTeamName }} Feature 4</option>
+                <option value="Release">QA / Release</option>
+                <option value="Hotfix">Hotfix</option>
+                <option value="uat-training">UAT2 / UAT Training</option>
+            </select>
+        </div>
+        <div class="form-group" v-if="!requiresApplicationVersion">
+            <label for="increment">Increment</label>
+            <input type="number" class="form-control" id="increment" v-model.number="increment">
+        </div>
+        <div class="form-group" v-if="requiresApplicationVersion">
+            <label for="appversion">Application version</label>
+            <input type="text" class="form-control" id="appversion" v-model="appversion">
+        </div>
+        <hr>
+
+        <div class="form-group">
+            <label for="push">Tag & push</label>
+            <input type="text" id="push" class="form-control" v-model="tagCommand">
+        </div>
+        <p>
+            <button class="btn btn-outline-primary copy" data-clipboard-target="#push" v-on:click="upIncrement">Copy &
+                increment</button>
+        </p>
+    </div>
+    <script>
+        var app = new Vue({
+            el: '#vue',
+            data: {
+                env: "",
+                increment: 1,
+                incrementStart: 100,
+                appversion: "",
+                showSettings: false,
+                teamName: "",
+            },
+            methods: {
+                upIncrement: function () {
+                    setTimeout(function () {
+                        this.increment++;
+                        localStorage.increment = this.increment;
+                    }.bind(this), 10);
+                },
+                toggleSettings: function () {
+                    this.showSettings = !this.showSettings;
+                },
+                saveSettings: function () {
+                    localStorage.teamName = this.teamName;
+                }
+            },
+            computed: {
+                settingsButtonText: function () { return this.showSettings ? "Hide Settings" : "Show Settings" },
+                tag: function () {
+                    if (this.requiresApplicationVersion) {
+                        return `${this.env}-${this.appversion}`
+                    }
+
+                    return `${this.env}-${this.date}.${this.increment}`
+                },
+                tagCommand: function () {
+                    return `git tagpush ${this.tag}`;
+                },
+                date: function () {
+                    const now = new Date();
+                    return `${now.getFullYear()}.${now.getMonth() + 1}.${now.getDate()}`;
+                },
+                requiresApplicationVersion: function () {
+                    return this.env === "Release" || this.env === "Hotfix";
+                },
+                prettyTeamName: function () {
+                    return this.teamName.charAt(0).toUpperCase() + this.teamName.slice(1);
+                }
+            },
+            mounted: function () {
+                this.increment = Number.parseInt(localStorage.increment) || 100;
+                this.teamName = localStorage.teamName || "hyd";
+                this.env = `Feature-${this.teamName}-2`;
+            }
+        })
+
+        var clipboard = new ClipboardJS('.copy');
+    </script>
+</body>
+
+</html>
